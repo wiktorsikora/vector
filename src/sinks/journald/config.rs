@@ -12,7 +12,7 @@ use crate::{
 /// Configuration for the `journald` sink.
 #[configurable_component(sink(
     "journald",
-    "Send observability events to the systemd journal."
+    "Send observability events to the systemd journal for local logging."
 ))]
 #[derive(Clone, Debug)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +20,7 @@ pub struct JournaldSinkConfig {
     /// Additional fields to include in journal entries.
     ///
     /// Allows adding custom fields beyond the standard ones like MESSAGE and PRIORITY.
+    /// Field names are automatically converted to uppercase as required by systemd journal.
     #[configurable(metadata(docs::examples = "examples_fields()"))]
     #[serde(default)]
     pub fields: HashMap<String, String>,
@@ -28,7 +29,8 @@ pub struct JournaldSinkConfig {
     ///
     /// This field identifies the journal and is typically set to the name of the application
     /// that is logging. It corresponds to the SYSLOG_IDENTIFIER field in systemd journal.
-    #[configurable(metadata(docs::examples = "vector"))]
+    /// This helps distinguish logs from different applications or services.
+    #[configurable(metadata(docs::examples = "vector", docs::examples = "my-app"))]
     #[serde(default = "default_identifier")]
     pub identifier: String,
 

@@ -1,0 +1,26 @@
+# Journald Sink Example
+# ------------------------------------------------------------------------------
+# A simple example showing how to send logs to systemd journal.
+# This demonstrates forwarding logs from a file to journald with custom fields.
+
+sources:
+  app_logs:
+    type: "file"
+    include: ["/var/log/myapp/*.log"]
+
+transforms:
+  add_metadata:
+    type: "remap"
+    inputs: ["app_logs"]
+    source: |
+      .service = "myapp"
+      .environment = "production"
+
+sinks:
+  local_journal:
+    inputs: ["add_metadata"]
+    type: "journald"
+    identifier: "myapp"
+    fields:
+      CUSTOM_FIELD: "custom_value"
+      DEPLOYMENT_ID: "prod-1"

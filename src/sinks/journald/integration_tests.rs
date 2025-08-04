@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    config::{SinkConfig, SinkContext},
+    config::{AcknowledgementsConfig, SinkConfig, SinkContext},
     test_util::{
         components::{run_and_assert_sink_compliance, SINK_TAGS},
         random_string,
