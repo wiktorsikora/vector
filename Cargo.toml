@@ -880,6 +880,7 @@ all-integration-tests = [
   "http-client-integration-tests",
   "humio-integration-tests",
   "influxdb-integration-tests",
+  "journald-integration-tests",
   "kafka-integration-tests",
   "logstash-integration-tests",
   "loki-integration-tests",
@@ -944,6 +945,7 @@ greptimedb-integration-tests = ["sinks-greptimedb_metrics", "sinks-greptimedb_lo
 humio-integration-tests = ["sinks-humio"]
 http-client-integration-tests = ["sources-http_client"]
 influxdb-integration-tests = ["sinks-influxdb"]
+journald-integration-tests = ["sinks-journald"]
 kafka-integration-tests = ["sinks-kafka", "sources-kafka"]
 logstash-integration-tests = ["docker", "sources-logstash"]
 loki-integration-tests = ["sinks-loki"]

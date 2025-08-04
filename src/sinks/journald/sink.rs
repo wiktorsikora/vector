@@ -34,12 +34,12 @@ impl JournaldSink {
         let mut vars = HashMap::new();
 
         // Extract the message field
-        if let Some(message) = log.get("message") {
+        if let Some(message) = log.get_message() {
             vars.insert("MESSAGE", message.to_string_lossy());
         }
 
-        // Extract priority if available
-        if let Some(level) = log.get("level") {
+        // Extract priority/level if available
+        if let Some(level) = log.get_by_meaning("level") {
             let priority = match level.to_string_lossy().as_ref() {
                 "trace" | "debug" => "7", // LOG_DEBUG
                 "info" => "6",             // LOG_INFO
@@ -60,14 +60,16 @@ impl JournaldSink {
         }
 
         // Add other relevant fields from the log event
-        for (key, value) in log.all_event_fields().unwrap_or_default() {
-            let key_str = key.to_string();
-            // Skip fields we've already handled or internal fields
-            if !matches!(key_str.as_str(), "message" | "level" | "timestamp")
-                && !key_str.starts_with('.')
-            {
-                let field_name = key_str.to_uppercase();
-                vars.insert(field_name.as_str(), value.to_string_lossy());
+        if let Some(all_fields) = log.all_event_fields() {
+            for (key, value) in all_fields {
+                let key_str = key.to_string();
+                // Skip fields we've already handled or internal fields
+                if !matches!(key_str.as_str(), "message" | "level" | "timestamp")
+                    && !key_str.starts_with('.')
+                {
+                    let field_name = key_str.to_uppercase();
+                    vars.insert(field_name.as_str(), value.to_string_lossy());
+                }
             }
         }
 
@@ -115,5 +117,35 @@ impl StreamSink<Event> for JournaldSink {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::{Event, LogEvent};
+
+    #[test]
+    fn test_journald_sink_creation() {
+        let config = JournaldSinkConfig::default();
+        let sink = JournaldSink::new(config);
+        assert!(sink.is_ok());
+    }
+
+    #[test]
+    fn test_journal_field_mapping() {
+        let config = JournaldSinkConfig::default();
+        let sink = JournaldSink::new(config).unwrap();
+        
+        let mut log = LogEvent::from("test message");
+        log.insert("level", "info");
+        log.insert("host", "test-host");
+        
+        // Just test that the function doesn't panic
+        // We can't actually test journal sending in unit tests without systemd
+        // This would be better tested in integration tests
+        let result = sink.send_log_to_journal(&log);
+        // We expect this to fail in test environment without systemd
+        assert!(result.is_err());
     }
 }

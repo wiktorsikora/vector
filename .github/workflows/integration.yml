@@ -74,7 +74,7 @@ jobs:
         service: [
           "amqp", "appsignal", "axiom", "aws", "azure", "clickhouse", "databend", "datadog-agent",
           "datadog-logs", "datadog-metrics", "datadog-traces", "dnstap", "docker-logs", "elasticsearch",
-          "eventstoredb", "fluent", "gcp", "greptimedb", "http-client", "influxdb", "kafka", "logstash",
+          "eventstoredb", "fluent", "gcp", "greptimedb", "http-client", "influxdb", "journald", "kafka", "logstash",
           "loki", "mongodb", "nats", "nginx", "opentelemetry", "postgres", "prometheus", "pulsar",
           "redis", "webhdfs"
         ]

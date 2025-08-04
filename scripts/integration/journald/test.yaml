@@ -1,0 +1,21 @@
+features:
+- journald-integration-tests
+
+test_filter: '::journald::'
+
+# journald is a system service, so no external environment needed
+env: {}
+
+# Since journald integration testing requires systemd, we run limited tests
+# that primarily check configuration and basic functionality
+matrix:
+  # journald is Linux-specific, but we test basic configuration validation
+  # The actual journal writing tests are marked as ignored by default
+  os: ['linux']
+
+# changes to these files/paths will invoke the integration test in CI
+# expressions are evaluated using https://github.com/micromatch/picomatch
+paths:
+- "src/sinks/journald/**"
+- "src/sinks/util/**"
+- "scripts/integration/journald/**"

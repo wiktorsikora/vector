@@ -94,4 +94,11 @@ mod tests {
     fn generate_config() {
         crate::test_util::test_generate_config::<JournaldSinkConfig>();
     }
+
+    #[test]
+    fn test_config_default() {
+        let config = JournaldSinkConfig::default();
+        assert_eq!(config.identifier, "vector");
+        assert!(config.fields.is_empty());
+    }
 }
