@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use futures::{future, FutureExt};
-use serde::{Deserialize, Serialize};
 use vector_lib::configurable::configurable_component;
 
 use crate::{
@@ -25,14 +24,10 @@ pub struct JournaldSinkConfig {
     #[serde(default)]
     pub fields: HashMap<String, String>,
 
-    /// The journal identifier.
-    ///
-    /// This field identifies the journal and is typically set to the name of the application
-    /// that is logging. It corresponds to the SYSLOG_IDENTIFIER field in systemd journal.
-    /// This helps distinguish logs from different applications or services.
-    #[configurable(metadata(docs::examples = "vector", docs::examples = "my-app"))]
-    #[serde(default = "default_identifier")]
-    pub identifier: String,
+    /// Path to the journald socket.
+    /// If not specified, the default systemd journal socket will be used.
+    #[configurable(metadata(docs::examples = "Some(\"/run/systemd/journal/socket\".to_string())"))]
+    pub journald_path: Option<String>,
 
     #[configurable(derived)]
     #[serde(
@@ -47,14 +42,10 @@ impl Default for JournaldSinkConfig {
     fn default() -> Self {
         Self {
             fields: HashMap::new(),
-            identifier: default_identifier(),
+            journald_path: None,
             acknowledgements: AcknowledgementsConfig::default(),
         }
     }
-}
-
-fn default_identifier() -> String {
-    "vector".to_string()
 }
 
 fn examples_fields() -> HashMap<String, String> {
@@ -76,7 +67,7 @@ impl SinkConfig for JournaldSinkConfig {
         let sink = JournaldSink::new(self.clone())?;
         let healthcheck = future::ok(()).boxed();
 
-        Ok((VectorSink::Stream(Box::new(sink)), healthcheck))
+        Ok((VectorSink::from_event_streamsink(sink), healthcheck))
     }
 
     fn input(&self) -> Input {
@@ -100,7 +91,6 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = JournaldSinkConfig::default();
-        assert_eq!(config.identifier, "vector");
         assert!(config.fields.is_empty());
     }
 }

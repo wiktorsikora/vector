@@ -383,7 +383,6 @@ regex = { version = "1.11.1", default-features = false, features = ["std", "perf
 roaring = { version = "0.11.2", default-features = false, features = ["std"], optional = true }
 rumqttc = { version = "0.24.0", default-features = false, features = ["use-rustls"], optional = true }
 seahash = { version = "4.1.0", default-features = false }
-systemd = { version = "0.10.1", default-features = false, features = ["journal"], optional = true }
 smallvec = { version = "1", default-features = false, features = ["union", "serde"] }
 snap = { version = "1.1.1", default-features = false }
 socket2.workspace = true
@@ -826,7 +825,7 @@ sinks-honeycomb = []
 sinks-http = []
 sinks-humio = ["sinks-splunk_hec", "transforms-metric_to_log"]
 sinks-influxdb = []
-sinks-journald = ["dep:systemd"]
+sinks-journald = []
 sinks-kafka = ["dep:rdkafka"]
 sinks-keep = []
 sinks-mezmo = []
