@@ -31,11 +31,11 @@ impl JournaldWriter {
     }
 
     /// Add a field with arbitrary bytes to the buffer.
-    // pub fn add_bytes(&mut self, key: &str, value: &[u8]) {
-    //     self.write_with_length(key, |w| {
-    //         w.buf.extend_from_slice(value);
-    //     });
-    // }
+    pub fn add_bytes(&mut self, key: &str, value: &[u8]) {
+        self.write_with_length(key, |w| {
+            w.buf.extend_from_slice(value);
+        });
+    }
 
     pub fn flush(&mut self) -> io::Result<usize> {
         if !self.buf.is_empty() {
@@ -84,6 +84,8 @@ impl JournaldWriter {
                 .map(|c| match c {
                     // As per journald protocol, '=' and '\n' are illegal in keys so we replace them with '_'.
                     b'=' | b'\n' => b'_',
+                    // '.' is ignored in keys, so we replace it with '_'.
+                    b'.' => b'_',
                     _ => c,
                 })
                 .filter(|&c| c == b'_' || char::from(c).is_ascii_alphanumeric())

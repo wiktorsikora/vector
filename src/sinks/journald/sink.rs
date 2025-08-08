@@ -1,13 +1,12 @@
-
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt};
-use snafu::{Snafu};
+use snafu::Snafu;
 use tracing::{error, warn};
 use vector_lib::internal_event::{
-    ByteSize, BytesSent, CountByteSize, EventsSent, InternalEventHandle as _, Output,
-    Protocol,
+    ByteSize, BytesSent, CountByteSize, EventsSent, InternalEventHandle as _, Output, Protocol,
 };
 use vector_lib::EstimatedJsonEncodedSizeOf;
+use vrl::core::Value;
 
 use crate::sinks::journald::journald_writer::JournaldWriter;
 use crate::{
@@ -40,25 +39,11 @@ impl JournaldSink {
     }
 
     fn send_log_to_journal(&mut self, log: &LogEvent) -> Result<(), JournaldSinkError> {
-
         // Extract the message field
         if let Some(message) = log.get_message() {
-            self.writer.add_str("MESSAGE", message.to_string_lossy().as_ref());
+            self.writer
+                .add_str("MESSAGE", message.to_string_lossy().as_ref());
         }
-
-        // Extract priority/level if available
-        // if let Some(level) = log.get_by_meaning("level") {
-        //     let priority = match level.to_string_lossy().as_ref() {
-        //         "trace" => "7",         // LOG_DEBUG
-        //         "debug" => "6",         // LOG_INFO
-        //         "info" => "5",          // LOG_WARNING
-        //         "warn" => "4",          // LOG_ERR
-        //         "error" => "3",         // LOG_CRIT
-        //         "fatal" => "2",
-        //         _ => "6",               // Default to LOG_INFO
-        //     };
-        //     self.writer.add_str("PRIORITY", priority);
-        // }
 
         // Add any additional configured fields
         for (key, value) in &self.config.fields {
@@ -69,16 +54,42 @@ impl JournaldSink {
         if let Some(all_fields) = log.all_event_fields() {
             for (key, value) in all_fields {
                 let key_str = key.to_string();
-                // Skip fields we've already handled or internal fields
-                if !matches!(key_str.as_str(), "message" | "level" | "timestamp")
-                    && !key_str.starts_with('.')
-                {
-                    self.writer.add_str(&key_str, value.to_string().as_ref());
+
+                let k = key_str.as_str();
+                match value {
+                    Value::Bytes(v) => {
+                        self.writer.add_bytes(k, v);
+                    }
+                    Value::Regex(v) => {
+                        self.writer.add_str(k, &v.to_string());
+                    }
+                    Value::Integer(_) | Value::Float(_) => {
+                        self.writer.add_str(k, &value.to_string());
+                    }
+                    Value::Boolean(v) => {
+                        self.writer.add_str(k, if *v { "true" } else { "false" });
+                    }
+                    Value::Timestamp(v) => {
+                        self.writer.add_str(k, &v.to_rfc3339());
+                    }
+                    Value::Object(_) | Value::Array(_) => {
+                        // Currently this code is unreachable because `all_event_fields` flattens
+                        // the event fields and does not include complex types like Object or Array.
+                        warn!("Journald sink does not support sending complex types like Object or Array. Key: {k}");
+                        continue;
+                    }
+                    Value::Null => {
+                        // For null values, we can choose to skip or send a specific string
+                        // Here we skip it, but you could also send "null" if desired
+                        continue;
+                    }
                 }
             }
         }
 
-        self.writer.flush().map_err(|err|JournaldSinkError::Send {source: err})?;
+        self.writer
+            .flush()
+            .map_err(|err| JournaldSinkError::Send { source: err })?;
 
         Ok(())
     }
