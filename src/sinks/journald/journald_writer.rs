@@ -1,10 +1,13 @@
+use nix::fcntl::{FcntlArg, SealFlag};
+use nix::sys::socket::{ControlMessage, MsgFlags};
+use std::ffi::CStr;
+use std::os::fd::AsRawFd;
+use std::path::{Path};
 use std::{io, os::unix::net::UnixDatagram};
-use std::path::{Path, PathBuf};
 
 /// A writer for journald that sends log messages over a Unix domain socket.
 /// For protocol details, see [this link](https://systemd.io/JOURNAL_NATIVE_PROTOCOL/)
 pub struct JournaldWriter {
-    journald_path: PathBuf,
     socket: UnixDatagram,
     buf: Vec<u8>,
 }
@@ -12,8 +15,8 @@ pub struct JournaldWriter {
 impl JournaldWriter {
     pub fn new(journald_path: impl AsRef<Path>) -> io::Result<Self> {
         let socket = UnixDatagram::unbound()?;
+        socket.connect(journald_path)?;
         let writer = Self {
-            journald_path: journald_path.as_ref().to_path_buf(),
             socket,
             buf: vec![],
         };
@@ -50,19 +53,51 @@ impl JournaldWriter {
         }
     }
 
-
     fn send_payload(&self, payload: &[u8]) -> io::Result<usize> {
         self.socket
-            .send_to(payload, self.journald_path.as_path())
+            .send(payload)
             .or_else(|error| {
                 if Some(nix::libc::EMSGSIZE) == error.raw_os_error() {
-                    // If the payload is too large, we should try to send it via a memfd, currently
-                    // this is not implemented.
-                    Err(error)
+                    self.send_through_memfd(payload)
                 } else {
                     Err(error)
                 }
             })
+    }
+
+    fn send_through_memfd(&self, payload: &[u8]) -> io::Result<usize> {
+        // If the payload is too large, we should try to send it via a memfd
+        // This method is described in the journald protocol: https://systemd.io/JOURNAL_NATIVE_PROTOCOL/
+        let name = CStr::from_bytes_with_nul(b"journald_payload\0").unwrap();
+        let memfd = nix::sys::memfd::memfd_create(
+            name,
+            nix::sys::memfd::MemFdCreateFlag::MFD_ALLOW_SEALING,
+        )?;
+
+        // Write the payload to the memfd
+        let written = nix::unistd::write(memfd, payload)?;
+        if written != payload.len() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to write all data to memfd",
+            ));
+        }
+
+        // Seal the memfd as required by journald protocol
+        nix::fcntl::fcntl(memfd, FcntlArg::F_ADD_SEALS(SealFlag::all()))?;
+
+        // Send the memfd file descriptor to journald
+        let scm = &[memfd];
+        let cmsgs = [ControlMessage::ScmRights(scm)];
+        nix::sys::socket::sendmsg::<()>(
+            self.socket.as_raw_fd(),
+            &[],
+            &cmsgs,
+            MsgFlags::empty(),
+            None,
+        )?;
+
+        Ok(written)
     }
 
     /// Append a sanitized and length-encoded field into the buffer.
