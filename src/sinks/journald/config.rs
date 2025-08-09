@@ -18,7 +18,7 @@ use crate::{
 pub struct JournaldSinkConfig {
     /// Additional fields to include in journal entries.
     ///
-    /// Allows adding custom fields beyond the standard ones like MESSAGE and PRIORITY.
+    /// Fields from the event will override these if they have the same name.
     /// Field names are automatically converted to uppercase as required by systemd journal.
     #[configurable(metadata(docs::examples = "examples_fields()"))]
     #[serde(default)]
@@ -26,8 +26,9 @@ pub struct JournaldSinkConfig {
 
     /// Path to the journald socket.
     /// If not specified, the default systemd journal socket will be used.
-    #[configurable(metadata(docs::examples = "Some(\"/run/systemd/journal/socket\".to_string())"))]
-    pub journald_path: Option<String>,
+    #[configurable(metadata(docs::examples = "\"/run/systemd/journal/socket\".to_string()"))]
+    #[serde(default = "default_journald_path")]
+    pub journald_path: String,
 
     #[configurable(derived)]
     #[serde(
@@ -38,11 +39,15 @@ pub struct JournaldSinkConfig {
     pub acknowledgements: AcknowledgementsConfig,
 }
 
+fn default_journald_path() -> String {
+    "/run/systemd/journal/socket".to_string()
+}
+
 impl Default for JournaldSinkConfig {
     fn default() -> Self {
         Self {
             fields: HashMap::new(),
-            journald_path: None,
+            journald_path: default_journald_path(),
             acknowledgements: AcknowledgementsConfig::default(),
         }
     }
@@ -92,6 +97,6 @@ mod tests {
     fn test_config_default() {
         let config = JournaldSinkConfig::default();
         assert!(config.fields.is_empty());
-        assert_eq!(config.journald_path, Some("/run/systemd/journal/socket".to_string()));
+        assert_eq!(config.journald_path, "/run/systemd/journal/socket".to_string());
     }
 }

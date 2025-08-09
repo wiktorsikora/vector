@@ -29,12 +29,8 @@ pub struct JournaldSink {
 
 impl JournaldSink {
     pub fn new(config: JournaldSinkConfig) -> crate::Result<Self> {
-        let path = config
-            .journald_path
-            .as_deref()
-            .unwrap_or("/run/systemd/journal/socket");
-        let writer =
-            JournaldWriter::new(path).map_err(|e| JournaldSinkError::Init { source: e })?;
+        let writer = JournaldWriter::new(&config.journald_path)
+            .map_err(|e| JournaldSinkError::Init { source: e })?;
         Ok(Self { config, writer })
     }
 
