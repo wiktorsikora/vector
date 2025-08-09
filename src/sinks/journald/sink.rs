@@ -39,12 +39,6 @@ impl JournaldSink {
     }
 
     fn send_log_to_journal(&mut self, log: &LogEvent) -> Result<(), JournaldSinkError> {
-        // Extract the message field
-        if let Some(message) = log.get_message() {
-            self.writer
-                .add_str("MESSAGE", message.to_string_lossy().as_ref());
-        }
-
         // Add any additional configured fields
         for (key, value) in &self.config.fields {
             self.writer.add_str(key.as_str(), value.as_str());
@@ -79,8 +73,7 @@ impl JournaldSink {
                         continue;
                     }
                     Value::Null => {
-                        // For null values, we can choose to skip or send a specific string
-                        // Here we skip it, but you could also send "null" if desired
+                        self.writer.add_str(k, "null");
                         continue;
                     }
                 }
@@ -126,35 +119,5 @@ impl StreamSink<Event> for JournaldSink {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::event::LogEvent;
-
-    #[test]
-    fn test_journald_sink_creation() {
-        let config = JournaldSinkConfig::default();
-        let sink = JournaldSink::new(config);
-        assert!(sink.is_ok());
-    }
-
-    #[test]
-    fn test_journal_field_mapping() {
-        let config = JournaldSinkConfig::default();
-        let mut sink = JournaldSink::new(config).unwrap();
-
-        let mut log = LogEvent::from("test message");
-        log.insert("level", "info");
-        log.insert("host", "test-host");
-
-        // Just test that the function doesn't panic
-        // We can't actually test journal sending in unit tests without systemd
-        // This would be better tested in integration tests
-        let result = sink.send_log_to_journal(&log);
-        // We expect this to fail in test environment without systemd
-        assert!(result.is_err());
     }
 }

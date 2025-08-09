@@ -92,5 +92,6 @@ mod tests {
     fn test_config_default() {
         let config = JournaldSinkConfig::default();
         assert!(config.fields.is_empty());
+        assert_eq!(config.journald_path, Some("/run/systemd/journal/socket".to_string()));
     }
 }

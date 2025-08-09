@@ -2,7 +2,7 @@ use nix::fcntl::{FcntlArg, SealFlag};
 use nix::sys::socket::{ControlMessage, MsgFlags};
 use std::ffi::CStr;
 use std::os::fd::AsRawFd;
-use std::path::{Path};
+use std::path::Path;
 use std::{io, os::unix::net::UnixDatagram};
 
 /// A writer for journald that sends log messages over a Unix domain socket.
@@ -41,31 +41,28 @@ impl JournaldWriter {
     }
 
     pub fn flush(&mut self) -> io::Result<usize> {
-        if !self.buf.is_empty() {
-            let bytes_sent = self.send_payload(&self.buf)?;
-            // Clear the buffer after sending
-            // We could also keep the buffer for reuse, but by doing this we ensure that
-            // we don't allocate too much memory for long time in case of rare large payloads.
-            self.buf = vec![];
-            Ok(bytes_sent)
-        } else {
-            Ok(0)
+        if self.buf.is_empty() {
+            return Ok(0);
         }
+        let bytes_sent = self.send_payload(&self.buf)?;
+        // Clear the buffer after sending
+        // We could also keep the buffer for reuse, but by doing this we ensure that
+        // we don't allocate too much memory for long time in case of rare large payloads.
+        self.buf = vec![];
+        Ok(bytes_sent)
     }
 
     fn send_payload(&self, payload: &[u8]) -> io::Result<usize> {
-        self.socket
-            .send(payload)
-            .or_else(|error| {
-                if Some(nix::libc::EMSGSIZE) == error.raw_os_error() {
-                    self.send_through_memfd(payload)
-                } else {
-                    Err(error)
-                }
-            })
+        self.socket.send(payload).or_else(|error| {
+            if Some(nix::libc::EMSGSIZE) == error.raw_os_error() {
+                self.send_with_memfd(payload)
+            } else {
+                Err(error)
+            }
+        })
     }
 
-    fn send_through_memfd(&self, payload: &[u8]) -> io::Result<usize> {
+    fn send_with_memfd(&self, payload: &[u8]) -> io::Result<usize> {
         // If the payload is too large, we should try to send it via a memfd
         // This method is described in the journald protocol: https://systemd.io/JOURNAL_NATIVE_PROTOCOL/
         let name = CStr::from_bytes_with_nul(b"journald_payload\0").unwrap();
