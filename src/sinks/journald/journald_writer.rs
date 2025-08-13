@@ -40,7 +40,9 @@ impl JournaldWriter {
         });
     }
 
-    pub fn flush(&mut self) -> io::Result<usize> {
+    /// Write the buffered data to journald.
+    /// Returns the number of bytes sent.
+    pub fn write(&mut self) -> io::Result<usize> {
         if self.buf.is_empty() {
             return Ok(0);
         }
@@ -52,6 +54,9 @@ impl JournaldWriter {
         Ok(bytes_sent)
     }
 
+    /// Send the payload to journald.
+    /// If the payload is too large, it will attempt to send it via a memfd.
+    /// Returns the number of bytes sent.
     fn send_payload(&self, payload: &[u8]) -> io::Result<usize> {
         self.socket.send(payload).or_else(|error| {
             if Some(nix::libc::EMSGSIZE) == error.raw_os_error() {

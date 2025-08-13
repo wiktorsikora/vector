@@ -23,7 +23,6 @@ pub enum JournaldSinkError {
 }
 
 pub struct JournaldSink {
-    config: JournaldSinkConfig,
     writer: JournaldWriter,
 }
 
@@ -31,15 +30,14 @@ impl JournaldSink {
     pub fn new(config: JournaldSinkConfig) -> crate::Result<Self> {
         let writer = JournaldWriter::new(&config.journald_path)
             .map_err(|e| JournaldSinkError::Init { source: e })?;
-        Ok(Self { config, writer })
+        Ok(Self { writer })
     }
 
-    fn send_log_to_journal(&mut self, log: &LogEvent) -> Result<(), JournaldSinkError> {
-        // Add any additional configured fields
-        for (key, value) in &self.config.fields {
-            self.writer.add_str(key.as_str(), value.as_str());
-        }
-
+    /// Sends a log event to the journald writer.
+    /// This method extracts all fields from the log event and sends them to journald.
+    /// It handles different value types appropriately, converting them to strings or bytes as needed.
+    /// Returns the number of bytes sent to journald.
+    fn send_log_to_journal(&mut self, log: &LogEvent) -> Result<usize, JournaldSinkError> {
         // Add other relevant fields from the log event
         if let Some(all_fields) = log.all_event_fields() {
             for (key, value) in all_fields {
@@ -76,11 +74,11 @@ impl JournaldSink {
             }
         }
 
-        self.writer
-            .flush()
+        let bytes_sent = self.writer
+            .write()
             .map_err(|err| JournaldSinkError::Send { source: err })?;
 
-        Ok(())
+        Ok(bytes_sent)
     }
 }
 
@@ -96,10 +94,10 @@ impl StreamSink<Event> for JournaldSink {
 
             match event {
                 Event::Log(ref log) => match self.send_log_to_journal(log) {
-                    Ok(()) => {
+                    Ok(bytes_written) => {
                         finalizers.update_status(EventStatus::Delivered);
                         events_sent.emit(CountByteSize(1, event_byte_size));
-                        bytes_sent.emit(ByteSize(event_byte_size.get()));
+                        bytes_sent.emit(ByteSize(bytes_written));
                     }
                     Err(error) => {
                         error!(message = "Failed to send event to journald.", %error);

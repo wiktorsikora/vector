@@ -231,7 +231,6 @@ jobs:
       humio: ${{ steps.filter.outputs.humio }}
       http-client: ${{ steps.filter.outputs.http-client }}
       influxdb: ${{ steps.filter.outputs.influxdb }}
-      journald: ${{ steps.filter.outputs.journald }}
       kafka: ${{ steps.filter.outputs.kafka }}
       logstash: ${{ steps.filter.outputs.logstash }}
       loki: ${{ steps.filter.outputs.loki }}
